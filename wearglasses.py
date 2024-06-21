@@ -1,94 +1,18 @@
 import os
-import sys
-import argparse
+import glob
 import numpy as np
 import cv2
 import face_recognition
-import math
-import dlib
 from PIL import Image, ImageFile
-import random
-
-__version__ = '0.3.0'
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glasses')
-# IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'images')
-GLASSES1_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses1.png')
+IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'something_templetes','glasses')
 GLASSES2_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses2.png')
-GLASSES3_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses3.png')
-GLASSES4_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses4.png')
-GLASSES5_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses5.png')
-GLASSES6_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses6.png')
-GLASSES7_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses7.png')
-GLASSES8_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses8.png')
-GLASSES9_IMAGE_PATH = os.path.join(IMAGE_DIR, 'glasses9.png')
+GLASS_PATH_LIST = glob.glob(os.path.join(IMAGE_DIR, '*'))
 
-def rect_to_bbox(rect):
-    """获得人脸矩形的坐标信息"""
-    # print(rect)
-    x = rect[3]
-    y = rect[0]
-    w = rect[1] - x
-    h = rect[2] - y
-    return (x, y, w, h)
-
-predictor = dlib.shape_predictor("./models/shape_predictor_68_face_landmarks.dat")
-def face_alignment(faces):
-    # 预测关键点
-    
-    faces_aligned = []
-    for face in faces:
-
-        face_gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
-
-        rec = dlib.rectangle(0, 0, face.shape[0], face.shape[1])
-        shape = predictor(face_gray, rec)
-        #shape = predictor(np.uint8(face), rec)
-        # left eye, right eye, nose, left mouth, right mouth
-        order = [36, 45, 30, 48, 54]
-        for j in order:
-            x = shape.part(j).x
-            y = shape.part(j).y
-        # 计算两眼的中心坐标
-        eye_center = ((shape.part(36).x + shape.part(45).x) * 1. / 2, (shape.part(36).y + shape.part(45).y) * 1. / 2)
-        dx = (shape.part(45).x - shape.part(36).x)
-        dy = (shape.part(45).y - shape.part(36).y)
-        # 计算角度
-        angle = math.atan2(dy, dx) * 180. / math.pi
-        # 计算仿射矩阵
-        RotateMatrix = cv2.getRotationMatrix2D(eye_center, angle, scale=1)
-        # 进行仿射变换，即旋转
-        RotImg = cv2.warpAffine(face, RotateMatrix, (face.shape[0], face.shape[1]))
-        faces_aligned.append(RotImg)
-    return faces_aligned
-
-def cli(pic_path ,save_pic_path):
-    parser = argparse.ArgumentParser(description='Wear a face mask in the given picture.')
-    # parser.add_argument('pic_path', default='/Users/wuhao/lab/wear-a-mask/spider/new_lfw/Aaron_Tippin/Aaron_Tippin_0001.jpg',help='Picture path.')
-    # parser.add_argument('--show', action='store_true', help='Whether show picture with mask or not.')
-    parser.add_argument('--model', default='hog', choices=['hog', 'cnn'], help='Which face detection model to use.')
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--black', action='store_true', help='Wear black mask')
-    group.add_argument('--blue', action='store_true', help='Wear blue mask')
-    group.add_argument('--red', action='store_true', help='Wear red mask')
-    args = parser.parse_args()
-
-    if not os.path.exists(pic_path):
-        print(f'Picture {pic_path} not exists.')
-        sys.exit(1)
-    mask_path = random.choice([GLASSES1_IMAGE_PATH, GLASSES3_IMAGE_PATH,
-                               GLASSES4_IMAGE_PATH, GLASSES5_IMAGE_PATH,
-                               GLASSES6_IMAGE_PATH, GLASSES7_IMAGE_PATH,
-                               GLASSES8_IMAGE_PATH, GLASSES9_IMAGE_PATH])
-    # mask_path = random.choice([GLASSES3_IMAGE_PATH])
-
-    unmasked_paths = FaceMasker(pic_path, mask_path, True, 'cnn',save_pic_path).mask()
-    return unmasked_paths
-
-class FaceMasker:
-    KEY_FACIAL_FEATURES = ('nose_bridge', 'chin')
+class FaceGlasser:
+    KEY_FACIAL_FEATURES = ('nose_bridge', 'chin','left_eyebrow','right_eyebrow')
 
     def __init__(self, face_path, mask_path, show=False, model='cnn',save_path = ''):
         self.face_path = face_path
@@ -101,7 +25,6 @@ class FaceMasker:
 
     def mask(self):
         face_image_np = face_recognition.load_image_file(self.face_path)
-        face_locations = face_recognition.face_locations(face_image_np, model=self.model)
         face_landmarks = face_recognition.face_landmarks(face_image_np)
         self._face_img = Image.fromarray(face_image_np)
         self._mask_img = Image.open(self.mask_path)
@@ -117,61 +40,23 @@ class FaceMasker:
             if skip:
                 continue
 
-            # mask face
-            #found_face = True
-            #self._mask_face(face_landmark)
-
-
-            # image_cv = np.array(self._face_img)
-            # for key in face_landmark.keys():
-            #     for p in face_landmark[key]:
-            #         cv2.circle(image_cv,p, 1,(0,255,255),1,1)
-            # cv2.imshow('show', image_cv)
-            # cv2.waitKey(0)
-    
-
             found_face = True
-            self._mask_face(face_landmark)
-
-        unmasked_paths = []
+            self._glasses_face(face_landmark)
 
         if found_face:
-            # align
-            src_faces = []
-            src_face_num = 0
             with_mask_face = np.asarray(self._face_img)
-            for (i, rect) in enumerate(face_locations):
-                src_face_num = src_face_num + 1
-                (x, y, w, h) = rect_to_bbox(rect)
-                detect_face = with_mask_face[y:y + h, x:x + w]
-                # src_faces.append(detect_face)
-                src_faces.append(with_mask_face)
-            # 人脸对齐操作并保存
-            # faces_aligned = face_alignment(src_faces)
-            faces_aligned = src_faces
-            face_num = 0
-            for faces in faces_aligned:
-                face_num = face_num + 1
-                faces = cv2.cvtColor(faces, cv2.COLOR_RGBA2BGR)
-                cv2.imwrite(self.save_path, faces)
+            faces = cv2.cvtColor(with_mask_face, cv2.COLOR_RGBA2BGR)
+            cv2.imwrite(self.save_path, faces)
         else:
-            #在这里记录没有裁的图片
             print('Found no face.' + self.save_path)
-            unmasked_paths.append(self.save_path)
 
-        return unmasked_paths
-
-    def _mask_face(self, face_landmark: dict):
+    def _glasses_face(self, face_landmark: dict):
         nose_bridge = face_landmark['nose_bridge']
         nose_point = nose_bridge[len(nose_bridge) * 1 // 4]
-        nose_v = np.array(nose_point)
 
         chin = face_landmark['chin']
         chin_len = len(chin)
         chin_bottom_point = chin[chin_len // 2]
-        chin_bottom_v = np.array(chin_bottom_point)
-        chin_left_point = chin[chin_len // 8]
-        chin_right_point = chin[chin_len * 7 // 8]
         
         left_eyebrow = face_landmark['left_eyebrow']
         eyebrow_left_point = left_eyebrow[0]
@@ -187,11 +72,7 @@ class FaceMasker:
         if self.mask_path == GLASSES2_IMAGE_PATH:
             height_ratio = 2.5
 
-        # new_height = int(np.linalg.norm(nose_v - chin_bottom_v))
         new_height = int(height_ratio * self.get_distance_from_point_to_line(nose_point, eyebrow_left_point, eyebrow_right_point))
-
-
-        img_cv = np.array(self._face_img)
 
         # left
         mask_left_img = self._mask_img.crop((0, 0, width // 2, height))
@@ -219,13 +100,8 @@ class FaceMasker:
         y = chin_bottom_point[1] - nose_point[1]
         angle = np.degrees(np.arctan2(x, y))
         rotated_mask_img = mask_img.rotate(angle, expand=True)
-        # rotated_mask_img.save('after_rotate.jpg')
-        
-        
-        
+
         # calculate mask location
-        # center_x = (nose_point[0] + chin_bottom_point[0]) // 2
-        # center_y = (nose_point[1] + chin_bottom_point[1]) // 2
         center_x = nose_bridge[0][0] 
         center_y = nose_bridge[0][1] 
 
@@ -248,17 +124,3 @@ class FaceMasker:
         return int(distance)
 
 
-if __name__ == '__main__':
-    import os
-    import glob
-    dataset_path = './imgs'
-    unmasked_paths=[]
-    files = glob.glob(os.path.join(dataset_path, '*'))
-    for i, file in enumerate(files):
-        print("{}/{}".format(i, len(files)))
-        # deal
-        imgpath = file
-        save_imgpath = os.path.join('results', os.path.basename(file))
-        if not os.path.exists(os.path.dirname(save_imgpath)):
-            os.makedirs(os.path.dirname(save_imgpath), exist_ok=True)
-        unmasked_paths = cli(imgpath,save_imgpath)

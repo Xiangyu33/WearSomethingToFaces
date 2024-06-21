@@ -1,4 +1,4 @@
-# wear_something_to_face
+# WearSomethingToFaces
 You can add something to face image, such as glasses, mask, etc.
 ![Alt text](assets/show_case2.png)
 # Usage
