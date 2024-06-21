@@ -3,8 +3,8 @@ import sys
 import glob
 import argparse
 import random
-from wearglasses import FaceGlasser, GLASS_PATH_LIST
-from wearmask import FaceMasker, MASK_PATH_LIST
+from src.wearglasses import FaceGlasser, GLASS_PATH_LIST
+from src.wearmask import FaceMasker, MASK_PATH_LIST
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
